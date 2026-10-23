@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ocean Map Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.30.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.30.0/mapbox-gl.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --ink: #16181d;
+  --muted: #6b7280;
+  --line: #e3e5ea;
+  --accent: #1f4fd8;
+  --accent-ink: #ffffff;
+  --danger: #c2332b;
+  --radius: 8px;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+}
+* { box-sizing: border-box; }
+body { margin: 0; height: 100vh; display: flex; background: var(--bg); overflow: hidden; }
+aside { width: 360px; flex: none; height: 100vh; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); }
+header { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+header p { margin: 2px 0 0; color: var(--muted); }
+section { padding: 14px 18px 16px; border-bottom: 1px solid var(--line); }
+section > h2 { margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+label.row, div.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
+label.row > span:first-child, div.row > span:first-child { color: var(--ink); }
+select, input[type=text], input[type=number], input[type=search] {
+  font: inherit; color: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; background: #fff; min-width: 0;
+}
+select { max-width: 190px; }
+input[type=number] { width: 80px; }
+input[type=color] { width: 28px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; cursor: pointer; }
+input[type=range] { width: 140px; accent-color: var(--accent); }
+input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+button { font: inherit; border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+button:hover { border-color: #c5c9d2; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+button.link { border: none; background: none; padding: 2px 4px; color: var(--accent); }
+button.danger { color: var(--danger); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.drop { border: 1.5px dashed #c5c9d2; border-radius: var(--radius); padding: 16px; text-align: center; color: var(--muted); cursor: pointer; }
+.drop.over { border-color: var(--accent); background: #eef2fd; color: var(--accent); }
+.drop strong { color: var(--ink); font-weight: 500; }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-top: 10px; }
+.card-head { display: flex; align-items: center; gap: 8px; }
+.card-head input[type=text] { flex: 1; font-weight: 600; border-color: transparent; padding-left: 2px; }
+.card-head input[type=text]:hover, .card-head input[type=text]:focus { border-color: var(--line); }
+.meta { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
+.warn { color: var(--danger); font-size: 12px; margin: 6px 0; }
+.cats { margin: 6px 0 2px; max-height: 210px; overflow-y: auto; }
+.cat { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.cat span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat em { color: var(--muted); font-style: normal; font-size: 12px; }
+#swatches { position: fixed; z-index: 20; width: 272px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 10px 10px 8px; }
+#swatches h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.swatch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; }
+.swatch-grid button { display: flex; flex-direction: column; align-items: center; gap: 4px; border: none; background: none; padding: 0; font-size: 11px; color: var(--ink); }
+.swatch-grid i { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
+.swatch-grid button.on i { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--accent); }
+#swatches .custom { margin-top: 8px; width: 100%; }
+details.filters { margin: 4px 0 8px; }
+details.filters summary { cursor: pointer; color: var(--accent); font-weight: 500; padding: 3px 0; }
+.filter { border-left: 2px solid var(--line); padding: 2px 0 4px 8px; margin: 6px 0; max-height: 200px; overflow-y: auto; }
+.filter-head { display: flex; justify-content: space-between; align-items: center; font-weight: 500; }
+.search { position: relative; }
+.search input { width: 100%; }
+.results { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; background: #fff; border: 1px solid var(--line); border-radius: 6px; margin-top: 2px; box-shadow: 0 6px 20px rgba(0,0,0,.08); max-height: 240px; overflow-y: auto; }
+.results div { padding: 6px 9px; cursor: pointer; }
+.results div:hover, .results div.active { background: #eef2fd; }
+.chips { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.chip { display: flex; align-items: center; gap: 8px; }
+.chip span { flex: 1; }
+.hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.sub { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.custom-size { display: flex; gap: 6px; align-items: center; }
+main { flex: 1; position: relative; min-width: 0; }
+#map { position: absolute; inset: 0; }
+#frame { position: absolute; pointer-events: none; outline: 2px solid rgba(255,255,255,.9); box-shadow: 0 0 0 9999px rgba(10,14,25,.28); z-index: 2; }
+#frame b { position: absolute; left: 0; top: -24px; font-size: 11px; font-weight: 500; color: #fff; background: rgba(10,14,25,.6); padding: 3px 7px; border-radius: 4px; }
+#busy, #toast { position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(16,18,24,.88); color: #fff; padding: 9px 14px; border-radius: 8px; font-weight: 500; }
+#busy { top: 50%; }
+#toast { bottom: 28px; transition: opacity .3s; }
+[hidden] { display: none !important; }
+.mapboxgl-popup-content { font-family: Inter, system-ui, sans-serif; font-size: 12px; padding: 10px 12px; max-width: 280px; }
+.mapboxgl-popup-content table { border-collapse: collapse; }
+.mapboxgl-popup-content td { padding: 1px 6px 1px 0; vertical-align: top; }
+.mapboxgl-popup-content td:first-child { color: var(--muted); white-space: nowrap; }
+@media (max-width: 760px) {
+  body { flex-direction: column-reverse; overflow: auto; height: auto; }
+  aside { width: 100%; height: auto; }
+  main { height: 60vh; flex: none; }
+}
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>Ocean Map Maker</h1>
+    <p>Locations, country highlights and slide-ready PNGs.</p>
+  </header>
+
+  <section>
+    <h2>Locations</h2>
+    <div class="drop" id="drop">
+      <strong>Drop a CSV, Excel or GeoJSON file</strong><br>or click to choose
+      <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.geojson,.json" multiple hidden>
+    </div>
+    <div id="datasets"></div>
+  </section>
+
+  <section>
+    <h2>Extra markers</h2>
+    <div class="search">
+      <input type="search" id="markerSearch" placeholder="Search a place, or type lat, lng — press Enter" autocomplete="off">
+      <div class="results" id="markerResults" hidden></div>
+    </div>
+    <div class="chips" id="markerList"></div>
+    <label class="row"><span>Click map to drop a marker</span><input type="checkbox" id="clickMarkers"></label>
+    <label class="row"><span>Marker size</span><input type="range" id="mSize" min="3" max="16" step="0.5"></label>
+    <label class="row"><span>Show names</span><input type="checkbox" id="mLabels"></label>
+    <p class="hint">Place search by OpenStreetMap Nominatim. Drag isn't supported yet — remove and re-add to move a marker.</p>
+  </section>
+
+  <section>
+    <h2>Country highlights</h2>
+    <div class="search">
+      <input type="search" id="countrySearch" placeholder="Add a country…" autocomplete="off">
+      <div class="results" id="countryResults" hidden></div>
+    </div>
+    <div class="chips" id="countryChips"></div>
+    <label class="row"><span>Click map to add / remove</span><input type="checkbox" id="clickCountries"></label>
+    <label class="row"><span>New country colour</span><span><input type="color" id="cColor"> <button class="link" id="cApplyAll">Apply to all</button></span></label>
+    <label class="row"><span>Fill opacity</span><input type="range" id="cOpacity" min="0" max="1" step="0.05"></label>
+    <label class="row"><span>Outline</span><input type="checkbox" id="cOutline"></label>
+    <label class="row"><span>Fade other countries</span><input type="range" id="cFade" min="0" max="0.9" step="0.05"></label>
+    <label class="row"><span>Fade colour</span><input type="color" id="cFadeColor"></label>
+  </section>
+
+  <section>
+    <h2>Base map</h2>
+    <label class="row"><span>Projection</span>
+      <select id="projection">
+        <option value="mercator">Mercator</option>
+        <option value="globe">Globe</option>
+        <option value="equalEarth">Equal Earth</option>
+        <option value="naturalEarth">Natural Earth</option>
+        <option value="winkelTripel">Winkel Tripel</option>
+      </select></label>
+    <label class="row"><span>Light</span>
+      <select data-bm="lightPreset">
+        <option value="day">Day</option><option value="dawn">Dawn</option><option value="dusk">Dusk</option><option value="night">Night</option>
+      </select></label>
+    <label class="row"><span>Place labels</span><input type="checkbox" data-bm="showPlaceLabels"></label>
+    <label class="row"><span>Road labels</span><input type="checkbox" data-bm="showRoadLabels"></label>
+    <label class="row"><span>Admin boundaries</span><input type="checkbox" data-bm="showAdminBoundaries"></label>
+    <label class="row"><span>3D buildings</span><input type="checkbox" data-bm="show3dObjects"></label>
+  </section>
+
+  <section>
+    <h2>Export</h2>
+    <label class="row"><span>Size</span><select id="preset"></select></label>
+    <div class="row" id="customRow" hidden><span>Custom (px)</span>
+      <span class="custom-size"><input type="number" id="expW" min="200" max="8000"> × <input type="number" id="expH" min="200" max="8000"></span></div>
+    <label class="row"><span>Text &amp; symbol size</span>
+      <select id="expTextSize"><option value="1">Small</option><option value="1.5">Medium</option><option value="2">Large</option><option value="2.5">Extra large</option></select></label>
+    <label class="row"><span>Show export frame</span><input type="checkbox" id="expFrame"></label>
+    <label class="row"><span>Legend</span><span>
+      <select id="expLegendPos"><option value="bl">Bottom left</option><option value="br">Bottom right</option><option value="tl">Top left</option><option value="tr">Top right</option></select>
+      <input type="checkbox" id="expLegend"></span></label>
+    <label class="row"><span>Mapbox / OSM credit</span><input type="checkbox" id="expAttribution"></label>
+    <div class="btns">
+      <button class="primary" id="download">Download PNG</button>
+      <button id="copy">Copy to clipboard</button>
+    </div>
+    <p class="hint">The PNG covers the area inside the frame, re-drawn at full resolution. Text and circles are sized for the slide, so they can look a little larger or smaller than on screen.</p>
+  </section>
+
+  <section>
+    <h2>Project</h2>
+    <div class="btns" style="margin-top:0">
+      <button id="saveProject">Save project…</button>
+      <button id="openProject">Open project…</button>
+      <button class="danger" id="reset">Reset</button>
+    </div>
+    <input type="file" id="projectFile" accept=".json" hidden>
+    <p class="hint">Saves the view, data and highlights to a .json file to reuse or share.</p>
+  </section>
+</aside>
+
+<main>
+  <div id="map"></div>
+  <div id="frame" hidden><b></b></div>
+  <div id="busy" hidden>Rendering PNG…</div>
+  <div id="toast" hidden></div>
+</main>
+
+<script>
+const MAPBOX_TOKEN = 'pk.eyJ1Ijoib2NlYW5vdXRkb29yIiwiYSI6IkpSZUpTNUUifQ.X2aNYcBz1SHaBocX2O9XEg';
+const STYLE_URL = 'mapbox://styles/oceanoutdoor/cmamnaq0w01gz01qo8f0v4k5q';
+// The Studio style still carries a May 2025 locations layer; it's always hidden so only uploaded data shows
+const BUILTIN_LAYER = 'ocean-all-locations-2025-05-13';
+const STORE_KEY = 'ocean-map-maker-v1';
+const WORLDVIEW = 'US';
+const LABEL_FONT = ['Open Sans Semibold', 'Arial Unicode MS Bold'];
+const MARKER_FONT = ['Open Sans Bold', 'Arial Unicode MS Bold'];
+// OpenStreetMap's public geocoder: results may be stored (unlike Mapbox's temporary geocoding),
+// but its usage policy allows at most one request a second and no search-as-you-type
+const NOMINATIM = 'https://nominatim.openstreetmap.org';
+const MAX_CATEGORIES = 30;
+
+// Same colours the Studio style uses for "Product Groups"
+const KNOWN_COLOURS = {
+  'Experiential Area': '#a05eb5', 'Digital': '#e0423a', 'Backlite': '#4a7ef4', 'Analog': '#4a7ef4',
+  'Backlight': '#4a7ef4', 'Boards': '#4a7ef4', 'Banner': '#32ac63', 'Mural': '#f4a638'
+};
+const BRAND_COLOURS = [
+  ['Blue', '#0354F5'], ['Green', '#0D994A'], ['Yellow', '#FCD10A'], ['Red', '#FF1C26'],
+  ['Black', '#000000'], ['Dark grey', '#5A5A5F'], ['Light grey', '#AFAFB4']
+];
+const OCEAN = Object.fromEntries(BRAND_COLOURS.map(([name, hex]) => [name, hex]));
+// New datasets and categories take Ocean colours first; the extra non-brand colours only appear past 7 categories,
+// so distinct categories never repeat a colour (the legend merges categories that share one)
+const PALETTE = [OCEAN.Blue, OCEAN.Green, OCEAN.Yellow, OCEAN.Red, OCEAN['Dark grey'], OCEAN.Black, OCEAN['Light grey'],
+  '#1fb5c4', '#a05eb5', '#e5679d', '#8c6d3f'];
+
+const EXPORT_PRESETS = [
+  { id: '1920x1080', label: '16:9 slide — 1920 × 1080', w: 1920, h: 1080 },
+  { id: '3840x2160', label: '16:9 slide 4K — 3840 × 2160', w: 3840, h: 2160 },
+  { id: '2400x1800', label: '4:3 slide — 2400 × 1800', w: 2400, h: 1800 },
+  { id: '2160x2160', label: 'Square — 2160 × 2160', w: 2160, h: 2160 },
+  { id: '1080x1350', label: 'Portrait 4:5 — 1080 × 1350', w: 1080, h: 1350 },
+  { id: 'custom', label: 'Custom…' }
+];
+
+const ISO = ('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ ' +
+  'CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD ' +
+  'GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM ' +
+  'KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA ' +
+  'NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ ' +
+  'SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU ' +
+  'WF WS XK YE YT ZA ZM ZW').split(' ');
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+const COUNTRIES = ISO.map(code => ({ code, name: code === 'XK' ? 'Kosovo' : regionNames.of(code) }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+const COUNTRY_ALIASES = {
+  'uk': 'GB', 'great britain': 'GB', 'britain': 'GB', 'england': 'GB', 'scotland': 'GB', 'wales': 'GB', 'northern ireland': 'GB',
+  'usa': 'US', 'united states of america': 'US', 'america': 'US', 'holland': 'NL', 'the netherlands': 'NL', 'uae': 'AE', 'czech republic': 'CZ'
+};
+const countryName = code => (COUNTRIES.find(c => c.code === code) || { name: code }).name;
+function countryCode(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw.length === 2 && ISO.includes(raw.toUpperCase())) return raw.toUpperCase();
+  // Website territories look like "united-kingdom" or "netherlands-dutch"
+  for (const v of [raw.replace(/[-_]/g, ' '), raw.split('-')[0]]) {
+    if (COUNTRY_ALIASES[v]) return COUNTRY_ALIASES[v];
+    const hit = COUNTRIES.find(c => c.name.toLowerCase() === v);
+    if (hit) return hit.code;
+  }
+  return null;
+}
+
+// ---------- state ----------
+function defaultState() {
+  return {
+    view: { center: [8, 56], zoom: 3.4, bearing: 0, pitch: 0 },
+    projection: 'mercator',
+    basemap: { lightPreset: 'day', showPlaceLabels: true, showRoadLabels: true, showAdminBoundaries: true, show3dObjects: true },
+    countries: {},
+    countryStyle: { color: OCEAN.Blue, opacity: 0.45, outline: true, fade: 0, fadeColor: '#ffffff' },
+    clickCountries: false,
+    datasets: [],
+    markers: [],
+    markerStyle: { size: 7, labels: true, color: OCEAN.Black },
+    clickMarkers: false,
+    exp: { preset: '1920x1080', w: 1920, h: 1080, textSize: 1.5, frame: true, legend: false, legendPos: 'bl', attribution: true }
+  };
+}
+// Colours that were defaults before the Ocean palette, swapped for their Ocean equivalents when a save is loaded
+const OLD_DEFAULTS = { '#4a7ef4': OCEAN.Blue, '#16181d': OCEAN.Black };
+function mergeState(saved) {
+  const d = defaultState();
+  for (const style of [saved.countryStyle, saved.markerStyle]) {
+    if (style && OLD_DEFAULTS[String(style.color).toLowerCase()]) style.color = OLD_DEFAULTS[style.color.toLowerCase()];
+  }
+  return {
+    ...d, ...saved,
+    view: { ...d.view, ...saved.view },
+    basemap: { ...d.basemap, ...saved.basemap },
+    countryStyle: { ...d.countryStyle, ...saved.countryStyle },
+    exp: { ...d.exp, ...saved.exp },
+    countries: saved.countries || {},
+    markers: saved.markers || [],
+    markerStyle: { ...d.markerStyle, ...saved.markerStyle },
+    datasets: (saved.datasets || []).map(unpackDataset)
+  };
+}
+// Rows are stored as value arrays rather than objects, which roughly halves the size of saves and project files
+function packState(s) {
+  return { ...s, datasets: s.datasets.map(({ rows, ...d }) => ({ ...d, packed: rows.map(r => d.columns.map(c => r[c] ?? '')) })) };
+}
+function unpackDataset(d) {
+  if (!d.packed) return d;
+  const { packed, ...rest } = d;
+  return { ...rest, rows: packed.map(vals => Object.fromEntries(d.columns.map((c, i) => [c, vals[i]]))) };
+}
+function loadState() {
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s) return mergeState(s); } catch (e) {}
+  return defaultState();
+}
+let state = loadState();
+let saveTimer, warnedSave = false;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(packState(state)));
+      warnedSave = false;
+    } catch (e) {
+      if (!warnedSave) toast('Too much data to remember between visits — use Save project to keep this map', 6000);
+      warnedSave = true;
+    }
+  }, 400);
+}
+
+// ---------- data helpers ----------
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+function num(v) {
+  if (v == null) return NaN;
+  let s = String(v).trim();
+  if (!s) return NaN;
+  if (/^-?\d+,\d+$/.test(s)) s = s.replace(',', '.');
+  return parseFloat(s);
+}
+function guessColumn(cols, patterns) {
+  for (const p of patterns) {
+    const hit = cols.find(c => typeof p === 'string' ? c.toLowerCase() === p.toLowerCase() : p.test(c));
+    if (hit) return hit;
+  }
+  return '';
+}
+function guessPairColumn(cols, rows) {
+  const pair = /^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$/;
+  return cols.find(c => { const v = rows.find(r => String(r[c] || '').trim()); return v && pair.test(v[c]); }) || '';
+}
+function coordsOf(ds, row) {
+  if (ds.latCol && ds.latCol === ds.lngCol) {
+    const parts = String(row[ds.latCol] || '').split(',');
+    return [num(parts[1]), num(parts[0])];
+  }
+  return [num(row[ds.lngCol]), num(row[ds.latCol])];
+}
+const cell = (row, col) => String(row[col] ?? '').trim();
+// "Boards>Premium Boards" colours as its parent, "Boards"
+const catValue = (ds, row) => ds.colorCol ? cell(row, ds.colorCol).split('>')[0].trim() : '';
+const median = xs => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+function filteredRows(ds) {
+  const filters = Object.entries(ds.filters || {});
+  return filters.length ? ds.rows.filter(r => filters.every(([col, vals]) => vals.includes(cell(r, col)))) : ds.rows;
+}
+function pointFeatures(ds) {
+  const out = [];
+  if (!ds.latCol || !ds.lngCol) return out;
+  filteredRows(ds).forEach((row, i) => {
+    const [x, y] = coordsOf(ds, row);
+    if (isFinite(x) && isFinite(y) && Math.abs(x) <= 180 && Math.abs(y) <= 90) {
+      out.push({ type: 'Feature', id: i, geometry: { type: 'Point', coordinates: [x, y] }, properties: { ...row, __cat: catValue(ds, row) } });
+    }
+  });
+  return out;
+}
+// One point per group (e.g. city), placed at the median of its sites so one mis-geocoded site can't drag it away.
+// Groups are split by country too, so two cities with the same name never merge.
+function groupedFeatures(ds) {
+  const cCol = countryColumn(ds), groups = new Map();
+  for (const f of pointFeatures(ds)) {
+    const p = f.properties, name = cell(p, ds.groupCol) || '(blank)';
+    const key = name.toLowerCase() + '|' + (cCol ? countryCode(p[cCol]) || cell(p, cCol) : '');
+    let g = groups.get(key);
+    if (!g) groups.set(key, g = { name, xs: [], ys: [], cats: new Map() });
+    g.xs.push(f.geometry.coordinates[0]); g.ys.push(f.geometry.coordinates[1]);
+    g.cats.set(p.__cat, (g.cats.get(p.__cat) || 0) + 1);
+  }
+  return [...groups.values()].filter(g => g.xs.length >= (ds.groupMin || 1)).map((g, i) => {
+    const cats = [...g.cats].sort((a, b) => b[1] - a[1]);
+    return { type: 'Feature', id: i, geometry: { type: 'Point', coordinates: [median(g.xs), median(g.ys)] },
+      properties: { name: g.name, count: g.xs.length, __cat: cats[0][0], breakdown: cats.map(([k, n]) => `${k || '(blank)'}: ${n}`).join('\n') } };
+  });
+}
+const featuresOf = ds => ds.groupCol ? groupedFeatures(ds) : pointFeatures(ds);
+function categoriesOf(ds) {
+  if (!ds.colorCol) return [];
+  const counts = new Map();
+  for (const f of pointFeatures(ds)) {
+    const v = f.properties.__cat;
+    if (v) counts.set(v, (counts.get(v) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_CATEGORIES).map(([value, count]) => ({ value, count }));
+}
+function distinctValues(ds, col) {
+  const counts = new Map();
+  for (const r of ds.rows) { const v = cell(r, col); counts.set(v, (counts.get(v) || 0) + 1); }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+const MAX_FILTER_VALUES = 40;
+const filterableColumns = ds => ds.columns.filter(c => c !== ds.latCol && c !== ds.lngCol && distinctValues(ds, c).length <= MAX_FILTER_VALUES);
+function ensureColours(ds) {
+  categoriesOf(ds).forEach((c, i) => {
+    if (!ds.colors[c.value]) ds.colors[c.value] = KNOWN_COLOURS[c.value] || PALETTE[i % PALETTE.length];
+  });
+}
+function colourExpression(ds) {
+  const cats = categoriesOf(ds);
+  if (!cats.length) return ds.color;
+  return ['match', ['get', '__cat'], ...cats.flatMap(c => [c.value, ds.colors[c.value] || ds.color]), ds.color];
+}
+function countryColumn(ds) { return guessColumn(ds.columns, [/^countr(y|ies)$/i, /countr/i, /territor/i]); }
+
+// Ocean website exports include drafts and a Dutch-language copy of every Netherlands site
+function defaultFilters(ds) {
+  const filters = {};
+  const status = ds.columns.find(c => c.toLowerCase() === 'status');
+  if (status && distinctValues(ds, status).some(([v]) => v === 'publish')) filters[status] = ['publish'];
+  const territory = ds.columns.find(c => c.toLowerCase() === 'territory');
+  if (territory) {
+    const vals = distinctValues(ds, territory).map(([v]) => v);
+    if (vals.includes('netherlands-dutch') && vals.includes('netherlands')) filters[territory] = vals.filter(v => v !== 'netherlands-dutch');
+  }
+  return filters;
+}
+
+function addDataset(name, rows, columns) {
+  rows = rows.map(r => {
+    const clean = {};
+    for (const [k, v] of Object.entries(r)) clean[String(k).trim()] = typeof v === 'string' ? v.trim() : v;
+    return clean;
+  });
+  columns = columns.map(c => String(c).trim()).filter(c => c && rows.some(r => cell(r, c)));
+  let latCol = guessColumn(columns, ['latitude', 'lat', /^y$/i, /lat/i]);
+  let lngCol = guessColumn(columns, ['longitude', 'lng', 'lon', 'long', /^x$/i, /lon|lng/i]);
+  if (!latCol || !lngCol) {
+    const pair = guessPairColumn(columns, rows);
+    if (pair) latCol = lngCol = pair;
+  }
+  const ds = {
+    id: uid(), name: name.replace(/\.[^.]+$/, ''), rows, columns, latCol, lngCol,
+    colorCol: guessColumn(columns, ['Product Groups', 'Product Group', /^(type|format|category|product)$/i, /type|format|product|categor|group/i]),
+    labelCol: guessColumn(columns, ['Title', 'Name', 'Site Name', /title|name/i]),
+    colors: {}, color: PALETTE[state.datasets.length % PALETTE.length], radius: 6, labels: false, visible: true,
+    filters: {}, groupCol: '', groupLabel: 'name', groupRadius: 22
+  };
+  ds.filters = defaultFilters(ds);
+  ensureColours(ds);
+  state.datasets.push(ds);
+  renderDatasets();
+  syncAll();
+  fitToDataset(ds);
+  save();
+  const n = featuresOf(ds).length, active = Object.keys(ds.filters).length;
+  toast(n ? `Added ${n} location${n === 1 ? '' : 's'}${active ? ` (${active} filter${active === 1 ? '' : 's'} applied — see Filters)` : ''}`
+    : 'File loaded — choose the latitude / longitude columns', 4000);
+}
+
+async function readFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'xlsx' || ext === 'xls') {
+    const wb = XLSX.read(await file.arrayBuffer());
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const header = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] || []).map(String);
+    return addDataset(file.name, XLSX.utils.sheet_to_json(ws, { defval: '' }), header);
+  }
+  const text = await file.text();
+  if (ext === 'json' || ext === 'geojson') {
+    const json = JSON.parse(text);
+    if (json.oceanMapMaker) return openProject(json);
+    const feats = (json.features || []).filter(f => f.geometry && f.geometry.type === 'Point');
+    if (!feats.length) throw new Error('No point features found in that GeoJSON');
+    const rows = feats.map(f => ({ ...f.properties, Longitude: f.geometry.coordinates[0], Latitude: f.geometry.coordinates[1] }));
+    const cols = [...new Set(rows.flatMap(Object.keys))];
+    return addDataset(file.name, rows, cols);
+  }
+  const parsed = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
+  return addDataset(file.name, parsed.data, parsed.meta.fields || []);
+}
+async function handleFiles(files) {
+  for (const f of files) {
+    try { await readFile(f); } catch (e) { console.error(e); toast(`Couldn't read ${f.name}: ${e.message}`, 5000); }
+  }
+}
+
+// ---------- map ----------
+mapboxgl.accessToken = MAPBOX_TOKEN;
+const map = new mapboxgl.Map({
+  container: 'map', style: STYLE_URL, ...state.view, projection: state.projection,
+  attributionControl: true, config: { basemap: { ...state.basemap } }
+});
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+let mapReady = false;
+
+function removeLayer(m, id) { if (m.getLayer(id)) m.removeLayer(id); }
+function applyBasemap(m) {
+  for (const [k, v] of Object.entries(state.basemap)) { try { m.setConfigProperty('basemap', k, v); } catch (e) {} }
+}
+
+// Adds every overlay we own (countries + uploaded datasets) to a map. Used for both the live map and the export render.
+function syncOverlays(m, forExport = false) {
+  if (m.getLayer(BUILTIN_LAYER)) m.setLayoutProperty(BUILTIN_LAYER, 'visibility', 'none');
+
+  ['oc-country-fade', 'oc-country-fill', 'oc-country-line', 'oc-country-hit'].forEach(id => removeLayer(m, id));
+  if (!m.getSource('oc-countries')) m.addSource('oc-countries', { type: 'vector', url: 'mapbox://mapbox.country-boundaries-v1' });
+  const base = { source: 'oc-countries', 'source-layer': 'country_boundaries', slot: 'middle' };
+  const worldview = ['any', ['==', ['get', 'worldview'], 'all'], ['in', WORLDVIEW, ['get', 'worldview']]];
+  const codes = Object.keys(state.countries);
+  const selected = ['in', ['get', 'iso_3166_1'], ['literal', codes]];
+  const cs = state.countryStyle;
+  if (cs.fade > 0) {
+    m.addLayer({ ...base, id: 'oc-country-fade', type: 'fill', filter: ['all', worldview, ['!', selected]],
+      paint: { 'fill-color': cs.fadeColor, 'fill-opacity': cs.fade } });
+  }
+  if (codes.length) {
+    const colour = ['match', ['get', 'iso_3166_1'], ...codes.flatMap(c => [c, state.countries[c]]), cs.color];
+    m.addLayer({ ...base, id: 'oc-country-fill', type: 'fill', filter: ['all', worldview, selected],
+      paint: { 'fill-color': colour, 'fill-opacity': cs.opacity } });
+    if (cs.outline) {
+      m.addLayer({ ...base, id: 'oc-country-line', type: 'line', filter: ['all', worldview, selected],
+        paint: { 'line-color': colour, 'line-width': 1.5 } });
+    }
+  }
+  if (!forExport) {
+    m.addLayer({ ...base, id: 'oc-country-hit', type: 'fill', filter: worldview, paint: { 'fill-color': '#000', 'fill-opacity': 0 } });
+  }
+
+  (m.__ocDatasets || []).forEach(id => {
+    removeLayer(m, id + '-label'); removeLayer(m, id + '-pt');
+    if (m.getSource(id)) m.removeSource(id);
+  });
+  m.__ocDatasets = [];
+  for (const ds of state.datasets) {
+    if (!ds.visible) continue;
+    const id = 'oc-ds-' + ds.id;
+    const features = featuresOf(ds);
+    m.__ocDatasets.push(id);
+    m.addSource(id, { type: 'geojson', data: { type: 'FeatureCollection', features } });
+    if (ds.groupCol) {
+      addGroupLayers(m, ds, id, features);
+      continue;
+    }
+    m.addLayer({ id: id + '-pt', type: 'circle', source: id, slot: 'top', paint: {
+      'circle-color': colourExpression(ds), 'circle-radius': ds.radius,
+      'circle-stroke-color': '#ffffff', 'circle-stroke-width': Math.max(1, ds.radius / 6)
+    } });
+    if (ds.labels && ds.labelCol) {
+      m.addLayer({ id: id + '-label', type: 'symbol', source: id, slot: 'top',
+        layout: { 'text-field': ['to-string', ['get', ds.labelCol]], 'text-font': LABEL_FONT, 'text-size': 12,
+          'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': 0.5 + ds.radius / 12,
+          'text-justify': 'auto', 'text-allow-overlap': ds.labelOverlap === true },
+        paint: { 'text-color': '#16181d', 'text-halo-color': '#ffffff', 'text-halo-width': 1.4 } });
+    }
+  }
+
+  // One-off markers go last so they sit above every dataset, and their names always show
+  removeLayer(m, 'oc-markers-label'); removeLayer(m, 'oc-markers-pt');
+  const markers = { type: 'FeatureCollection', features: state.markers.map(k => ({
+    type: 'Feature', geometry: { type: 'Point', coordinates: [k.lng, k.lat] }, properties: { name: k.name, color: k.color } })) };
+  if (m.getSource('oc-markers')) m.getSource('oc-markers').setData(markers);
+  else m.addSource('oc-markers', { type: 'geojson', data: markers });
+  const ms = state.markerStyle;
+  m.addLayer({ id: 'oc-markers-pt', type: 'circle', source: 'oc-markers', slot: 'top',
+    paint: { 'circle-color': ['get', 'color'], 'circle-radius': ms.size, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } });
+  if (ms.labels) {
+    m.addLayer({ id: 'oc-markers-label', type: 'symbol', source: 'oc-markers', slot: 'top',
+      layout: { 'text-field': ['get', 'name'], 'text-font': MARKER_FONT, 'text-size': 13,
+        'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': 0.6 + ms.size / 12,
+        'text-justify': 'auto', 'text-allow-overlap': true },
+      paint: { 'text-color': '#16181d', 'text-halo-color': '#ffffff', 'text-halo-width': 1.6 } });
+  }
+}
+
+// Grouped points: circle area grows with the number of sites; big groups draw underneath and win label placement
+const GROUP_MIN_RADIUS = 4;
+function addGroupLayers(m, ds, id, features) {
+  const maxR = ds.groupRadius || 22;
+  const maxCount = Math.max(1, ...features.map(f => f.properties.count));
+  const radius = maxCount > 1
+    ? ['interpolate', ['linear'], ['sqrt', ['get', 'count']], 1, GROUP_MIN_RADIUS, Math.sqrt(maxCount), maxR]
+    : maxR;
+  m.addLayer({ id: id + '-pt', type: 'circle', source: id, slot: 'top',
+    layout: { 'circle-sort-key': ['-', ['get', 'count']] },
+    paint: { 'circle-color': colourExpression(ds), 'circle-radius': radius, 'circle-opacity': 0.9,
+      'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 } });
+  if (ds.groupLabel === 'none') return;
+  const paint = { 'text-color': '#16181d', 'text-halo-color': '#ffffff', 'text-halo-width': 1.4 };
+  if (ds.groupLabel === 'count') {
+    m.addLayer({ id: id + '-label', type: 'symbol', source: id, slot: 'top',
+      filter: ['>=', ['get', 'count'], 2],
+      layout: { 'text-field': ['to-string', ['get', 'count']], 'text-font': LABEL_FONT, 'text-size': 11, 'text-allow-overlap': true },
+      paint: { 'text-color': '#ffffff' } });
+    return;
+  }
+  const text = ds.groupLabel === 'name-count'
+    ? ['concat', ['get', 'name'], ' (', ['to-string', ['get', 'count']], ')']
+    : ['get', 'name'];
+  const offset = ['+', 0.5, ['/', ['interpolate', ['linear'], ['sqrt', ['get', 'count']], 1, GROUP_MIN_RADIUS, Math.sqrt(maxCount), maxR], 12]];
+  m.addLayer({ id: id + '-label', type: 'symbol', source: id, slot: 'top',
+    layout: { 'text-field': text, 'text-font': LABEL_FONT, 'text-size': 12, 'symbol-sort-key': ['-', ['get', 'count']],
+      'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': maxCount > 1 ? offset : 0.5 + maxR / 12,
+      'text-justify': 'auto', 'text-allow-overlap': ds.labelOverlap === true },
+    paint });
+}
+
+let syncQueued = false;
+function syncAll() {
+  if (!mapReady || syncQueued) return;
+  syncQueued = true;
+  requestAnimationFrame(() => { syncQueued = false; syncOverlays(map); });
+}
+
+map.on('style.load', () => { mapReady = true; applyBasemap(map); syncOverlays(map); });
+map.on('moveend', () => {
+  const c = map.getCenter();
+  state.view = { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+  save();
+});
+
+const pointLayers = () => (map.__ocDatasets || []).map(id => id + '-pt').filter(id => map.getLayer(id));
+map.on('mousemove', e => {
+  const layers = pointLayers();
+  const hit = layers.length && map.queryRenderedFeatures(e.point, { layers }).length;
+  map.getCanvas().style.cursor = state.clickMarkers ? 'crosshair' : hit || state.clickCountries ? 'pointer' : '';
+});
+map.on('click', e => {
+  const layers = pointLayers();
+  const pts = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
+  if (state.clickMarkers) {
+    addMarker('New marker', e.lngLat.lng, e.lngLat.lat, true);
+    return;
+  }
+  if (pts.length && !state.clickCountries) {
+    const props = pts[0].properties;
+    const html = props.breakdown !== undefined
+      ? `<strong>${esc(props.name)}</strong> · ${props.count} site${props.count === 1 ? '' : 's'}<br>${esc(props.breakdown).replace(/\n/g, '<br>')}`
+      : `<table>${Object.entries(props).filter(([k, v]) => k !== '__cat' && v !== '' && v != null).slice(0, 14)
+          .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>`;
+    new mapboxgl.Popup({ maxWidth: '300px' }).setLngLat(pts[0].geometry.coordinates).setHTML(html).addTo(map);
+    return;
+  }
+  if (state.clickCountries) {
+    const hit = map.queryRenderedFeatures(e.point, { layers: ['oc-country-hit'] })[0];
+    const code = hit && hit.properties.iso_3166_1;
+    if (code) toggleCountry(code);
+  }
+});
+
+function fitToDataset(ds) {
+  const feats = featuresOf(ds);
+  if (!feats.length) return;
+  const b = new mapboxgl.LngLatBounds();
+  feats.forEach(f => b.extend(f.geometry.coordinates));
+  const f = frameRect();
+  const rect = $('#map').getBoundingClientRect();
+  const px = Math.max(40, (rect.width - f.width) / 2 + 40), py = Math.max(40, (rect.height - f.height) / 2 + 40);
+  map.fitBounds(b, { padding: { top: py, bottom: py, left: px, right: px }, maxZoom: 13, duration: 800 });
+}
+
+// ---------- countries ----------
+function toggleCountry(code) {
+  if (state.countries[code]) delete state.countries[code];
+  else state.countries[code] = state.countryStyle.color;
+  renderCountries(); syncAll(); save();
+}
+function renderCountries() {
+  const codes = Object.keys(state.countries).sort((a, b) => countryName(a).localeCompare(countryName(b)));
+  $('#countryChips').innerHTML = codes.length ? codes.map(c => `
+    <div class="chip"><input type="color" data-country="${c}" value="${state.countries[c]}"><span>${esc(countryName(c))}</span>
+    <button class="link" data-remove-country="${c}" title="Remove">✕</button></div>`).join('') +
+    `<div><button class="link" id="clearCountries">Clear all</button></div>` : '<p class="hint">No countries highlighted yet.</p>';
+}
+let resultIndex = 0;
+function renderResults() {
+  const q = $('#countrySearch').value.trim().toLowerCase();
+  const box = $('#countryResults');
+  if (!q) { box.hidden = true; return; }
+  const matches = COUNTRIES.filter(c => !state.countries[c.code] && (c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q)).slice(0, 10);
+  resultIndex = Math.min(resultIndex, Math.max(0, matches.length - 1));
+  box.innerHTML = matches.length ? matches.map((c, i) => `<div data-add-country="${c.code}" class="${i === resultIndex ? 'active' : ''}">${esc(c.name)}</div>`).join('')
+    : '<div style="color:var(--muted);cursor:default">No match</div>';
+  box.hidden = false;
+}
+$('#countrySearch').addEventListener('input', () => { resultIndex = 0; renderResults(); });
+$('#countrySearch').addEventListener('keydown', e => {
+  const items = [...$('#countryResults').querySelectorAll('[data-add-country]')];
+  if (e.key === 'ArrowDown') { resultIndex = Math.min(resultIndex + 1, items.length - 1); renderResults(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { resultIndex = Math.max(resultIndex - 1, 0); renderResults(); e.preventDefault(); }
+  if (e.key === 'Enter' && items[resultIndex]) { toggleCountry(items[resultIndex].dataset.addCountry); $('#countrySearch').value = ''; renderResults(); }
+  if (e.key === 'Escape') { $('#countrySearch').value = ''; renderResults(); }
+});
+$('#countryResults').addEventListener('mousedown', e => {
+  const el = e.target.closest('[data-add-country]');
+  if (!el) return;
+  e.preventDefault();
+  toggleCountry(el.dataset.addCountry);
+  $('#countrySearch').value = ''; renderResults(); $('#countrySearch').focus();
+});
+$('#countrySearch').addEventListener('blur', () => setTimeout(() => { $('#countryResults').hidden = true; }, 100));
+$('#countryChips').addEventListener('input', e => {
+  const c = e.target.dataset.country;
+  if (c) { state.countries[c] = e.target.value; syncAll(); save(); }
+});
+$('#countryChips').addEventListener('click', e => {
+  if (e.target.dataset.removeCountry) toggleCountry(e.target.dataset.removeCountry);
+  if (e.target.id === 'clearCountries') { state.countries = {}; renderCountries(); syncAll(); save(); }
+});
+$('#cApplyAll').addEventListener('click', () => {
+  for (const c in state.countries) state.countries[c] = state.countryStyle.color;
+  renderCountries(); syncAll(); save();
+});
+
+// ---------- extra markers ----------
+let lastLookup = 0;
+async function nominatim(path, params) {
+  const wait = lastLookup + 1100 - Date.now();
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastLookup = Date.now();
+  const res = await fetch(`${NOMINATIM}/${path}?${new URLSearchParams({ format: 'jsonv2', 'accept-language': 'en', ...params })}`);
+  if (!res.ok) throw new Error(`place search returned ${res.status}`);
+  return res.json();
+}
+function addMarker(name, lng, lat, lookUpName = false) {
+  const marker = { id: uid(), name, lng, lat, color: state.markerStyle.color };
+  state.markers.push(marker);
+  renderMarkers(); syncAll(); save();
+  if (lookUpName) {
+    nominatim('reverse', { lat, lon: lng, zoom: 10 }).then(r => {
+      const a = r.address || {};
+      const found = a.city || a.town || a.village || a.municipality || r.name;
+      if (found && marker.name === 'New marker') { marker.name = found; renderMarkers(); syncAll(); save(); }
+    }).catch(() => {});
+  }
+}
+function renderMarkers() {
+  $('#markerList').innerHTML = state.markers.map(k => `
+    <div class="chip" data-marker="${k.id}"><input type="color" data-mk="color" value="${k.color}">
+    <input type="text" data-mk="name" value="${esc(k.name)}" style="flex:1">
+    <button class="link" data-mk-remove title="Remove">✕</button></div>`).join('');
+}
+let markerResults = [];
+function showMarkerResults(items, message) {
+  markerResults = items;
+  const box = $('#markerResults');
+  box.innerHTML = message ? `<div style="color:var(--muted);cursor:default">${esc(message)}</div>`
+    : items.map((r, i) => `<div data-result="${i}"><strong>${esc(r.name)}</strong><br><span style="color:var(--muted);font-size:12px">${esc(r.detail)}</span></div>`).join('');
+  box.hidden = false;
+}
+$('#markerSearch').addEventListener('keydown', async e => {
+  if (e.key === 'Escape') { e.target.value = ''; $('#markerResults').hidden = true; return; }
+  if (e.key !== 'Enter') return;
+  const q = e.target.value.trim();
+  if (!q) return;
+  const coords = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (coords && Math.abs(+coords[1]) <= 90 && Math.abs(+coords[2]) <= 180) {
+    addMarker('New marker', +coords[2], +coords[1], true);
+    e.target.value = ''; $('#markerResults').hidden = true;
+    return;
+  }
+  showMarkerResults([], 'Searching…');
+  try {
+    const found = await nominatim('search', { q, limit: 6 });
+    if (!found.length) return showMarkerResults([], 'No places found');
+    // A city and its districts often share a name and address, so show the place type and drop exact repeats
+    const seen = new Set();
+    showMarkerResults(found.map(r => {
+      const type = (r.addresstype || r.type || '').replace(/_/g, ' ');
+      return { name: r.name || r.display_name.split(',')[0], detail: `${type ? type[0].toUpperCase() + type.slice(1) + ' · ' : ''}${r.display_name}`, lng: +r.lon, lat: +r.lat };
+    }).filter(r => !seen.has(r.detail) && seen.add(r.detail)));
+  } catch (err) {
+    showMarkerResults([], `Search unavailable (${err.message}) — type lat, lng or click the map instead`);
+  }
+});
+$('#markerResults').addEventListener('mousedown', e => {
+  const el = e.target.closest('[data-result]');
+  if (!el) return;
+  e.preventDefault();
+  const r = markerResults[+el.dataset.result];
+  addMarker(r.name, r.lng, r.lat);
+  $('#markerSearch').value = ''; $('#markerResults').hidden = true;
+});
+$('#markerSearch').addEventListener('blur', () => setTimeout(() => { $('#markerResults').hidden = true; }, 150));
+$('#markerList').addEventListener('input', e => {
+  const row = e.target.closest('[data-marker]'); if (!row) return;
+  const k = state.markers.find(m => m.id === row.dataset.marker);
+  k[e.target.dataset.mk] = e.target.value;
+  syncAll(); save();
+});
+$('#markerList').addEventListener('click', e => {
+  if (e.target.dataset.mkRemove === undefined) return;
+  const id = e.target.closest('[data-marker]').dataset.marker;
+  state.markers = state.markers.filter(m => m.id !== id);
+  renderMarkers(); syncAll(); save();
+});
+
+// ---------- datasets UI ----------
+function columnOptions(cols, selected, blankLabel) {
+  return (blankLabel ? `<option value="">${blankLabel}</option>` : '') +
+    cols.map(c => `<option value="${esc(c)}" ${c === selected ? 'selected' : ''}>${esc(c)}</option>`).join('');
+}
+function renderDatasets() {
+  $('#datasets').innerHTML = state.datasets.map(ds => {
+    const included = filteredRows(ds).length, mapped = pointFeatures(ds).length, skipped = included - mapped;
+    const groups = ds.groupCol ? groupedFeatures(ds).length : 0;
+    const cats = categoriesOf(ds);
+    const cCol = countryColumn(ds);
+    const filters = ds.filters || {};
+    const unfiltered = filterableColumns(ds).filter(c => !filters[c]);
+    const meta = [
+      `${ds.rows.length.toLocaleString()} rows`,
+      Object.keys(filters).length ? `${included.toLocaleString()} after filters` : '',
+      `${mapped.toLocaleString()} mapped`,
+      skipped ? `${skipped} without coordinates` : '',
+      ds.groupCol ? `<strong>${groups.toLocaleString()} groups</strong>` : ''
+    ].filter(Boolean).join(' · ');
+    return `<div class="card" data-ds="${ds.id}">
+      <div class="card-head">
+        <input type="checkbox" data-k="visible" ${ds.visible ? 'checked' : ''} title="Show / hide">
+        <input type="text" data-k="name" value="${esc(ds.name)}">
+        <button class="link" data-act="fit" title="Zoom to these locations">Zoom</button>
+        <button class="link danger" data-act="remove" title="Remove">✕</button>
+      </div>
+      <div class="meta">${meta}</div>
+      ${!mapped && !included ? '<div class="warn">Every row is filtered out — check Filters.</div>' : ''}
+      ${!mapped && included ? '<div class="warn">Pick the columns that hold latitude and longitude.</div>' : ''}
+      <details class="filters" ${ds.__openFilters ? 'open' : ''}>
+        <summary>Filters${Object.keys(filters).length ? ` (${Object.keys(filters).length} active)` : ''}</summary>
+        ${Object.entries(filters).map(([col, vals]) => `<div class="filter">
+          <div class="filter-head"><span>${esc(col)}</span>
+            <span><button class="link" data-act="fall" data-col="${esc(col)}">All</button><button class="link" data-act="fnone" data-col="${esc(col)}">None</button>
+            <button class="link danger" data-act="frm" data-col="${esc(col)}" title="Remove filter">✕</button></span></div>
+          ${distinctValues(ds, col).map(([v, n]) => `<label class="cat"><input type="checkbox" data-fcol="${esc(col)}" data-fval="${esc(v)}" ${vals.includes(v) ? 'checked' : ''}>
+            <span>${v ? esc(v) : '<em>(blank)</em>'}</span><em>${n}</em></label>`).join('')}
+        </div>`).join('')}
+        ${unfiltered.length ? `<label class="row"><span>Add filter</span><select data-k="addFilter"><option value="">Choose column…</option>${columnOptions(unfiltered, '')}</select></label>` : ''}
+      </details>
+      <label class="row"><span>Latitude</span><select data-k="latCol">${columnOptions(ds.columns, ds.latCol, '— choose —')}</select></label>
+      <label class="row"><span>Longitude</span><select data-k="lngCol">${columnOptions(ds.columns, ds.lngCol, '— choose —')}</select></label>
+      <label class="row"><span>Colour by</span><select data-k="colorCol">${columnOptions(ds.columns, ds.colorCol, 'One colour')}</select></label>
+      <div class="cats">
+        ${cats.map(c => `<div class="cat"><input type="color" data-cat="${esc(c.value)}" value="${ds.colors[c.value] || ds.color}"><span title="${esc(c.value)}">${esc(c.value)}</span><em>${c.count}</em></div>`).join('')}
+        <div class="cat"><input type="color" data-k="color" value="${ds.color}"><span>${cats.length ? 'Everything else' : 'Point colour'}</span></div>
+      </div>
+      <label class="row"><span>Group by</span><select data-k="groupCol">${columnOptions(ds.columns, ds.groupCol, 'No grouping — every site')}</select></label>
+      ${ds.groupCol ? `
+      <p class="hint" style="margin-top:0">One circle per ${esc(ds.groupCol.toLowerCase())}, sized by number of sites${ds.colorCol ? ', coloured by its most common type' : ''}.</p>
+      <label class="row"><span>Largest circle</span><input type="range" data-k="groupRadius" min="8" max="48" step="1" value="${ds.groupRadius || 22}"></label>
+      <label class="row"><span>Hide groups with fewer than</span><span><input type="number" data-k="groupMin" min="1" max="500" value="${ds.groupMin || 1}" style="width:56px"> sites</span></label>
+      <label class="row"><span>Labels</span><select data-k="groupLabel">
+        ${[['none', 'None'], ['name', 'Name'], ['name-count', 'Name + number of sites'], ['count', 'Number inside circle']]
+          .map(([v, l]) => `<option value="${v}" ${ds.groupLabel === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      ${ds.groupLabel === 'name' || ds.groupLabel === 'name-count' ? `<label class="row"><span>Always show every label</span><input type="checkbox" data-k="labelOverlap" ${ds.labelOverlap ? 'checked' : ''}></label>` : ''}
+      ` : `
+      <label class="row"><span>Point size</span><input type="range" data-k="radius" min="2" max="16" step="0.5" value="${ds.radius}"></label>
+      <label class="row"><span>Labels</span><span><select data-k="labelCol">${columnOptions(ds.columns, ds.labelCol, 'None')}</select>
+        <input type="checkbox" data-k="labels" ${ds.labels ? 'checked' : ''} title="Show labels"></span></label>
+      ${ds.labels && ds.labelCol ? `<label class="row"><span>Always show every label</span><input type="checkbox" data-k="labelOverlap" ${ds.labelOverlap ? 'checked' : ''}></label>` : ''}`}
+      ${cCol ? `<div class="sub"><button class="link" data-act="countries">Highlight the countries in “${esc(cCol)}”</button></div>` : ''}
+    </div>`;
+  }).join('');
+}
+const dsById = id => state.datasets.find(d => d.id === id);
+$('#datasets').addEventListener('input', e => {
+  const card = e.target.closest('[data-ds]'); if (!card) return;
+  const ds = dsById(card.dataset.ds); const k = e.target.dataset.k;
+  if (e.target.dataset.cat !== undefined) ds.colors[e.target.dataset.cat] = e.target.value;
+  else if (k === 'radius' || k === 'groupRadius') ds[k] = +e.target.value;
+  else if (k === 'color' || k === 'name') ds[k] = e.target.value;
+  else return;
+  syncAll(); save();
+});
+$('#datasets').addEventListener('change', e => {
+  const card = e.target.closest('[data-ds]'); if (!card) return;
+  const ds = dsById(card.dataset.ds); const k = e.target.dataset.k;
+  ds.__openFilters = card.querySelector('details.filters').open;
+  if (e.target.dataset.fcol !== undefined) {
+    const col = e.target.dataset.fcol, v = e.target.dataset.fval, vals = ds.filters[col];
+    ds.filters[col] = e.target.checked ? [...vals, v] : vals.filter(x => x !== v);
+    renderDatasets(); syncAll(); save();
+    return;
+  }
+  if (k === 'addFilter') {
+    if (e.target.value) ds.filters = { ...ds.filters, [e.target.value]: distinctValues(ds, e.target.value).map(([v]) => v) };
+    renderDatasets(); save();
+    return;
+  }
+  if (!['latCol', 'lngCol', 'colorCol', 'labelCol', 'labels', 'labelOverlap', 'visible', 'groupCol', 'groupLabel', 'groupMin'].includes(k)) return;
+  ds[k] = e.target.type === 'checkbox' ? e.target.checked : k === 'groupMin' ? Math.max(1, +e.target.value || 1) : e.target.value;
+  if (k === 'labelCol' && ds.labelCol) ds.labels = true;
+  if (k === 'colorCol') ensureColours(ds);
+  renderDatasets(); syncAll(); save();
+  if ((k === 'latCol' || k === 'lngCol') && featuresOf(ds).length) fitToDataset(ds);
+});
+$('#datasets').addEventListener('click', e => {
+  const act = e.target.dataset.act; if (!act) return;
+  const ds = dsById(e.target.closest('[data-ds]').dataset.ds);
+  const col = e.target.dataset.col;
+  if (act === 'fall' || act === 'fnone' || act === 'frm') {
+    ds.__openFilters = true;
+    if (act === 'frm') { const { [col]: _, ...rest } = ds.filters; ds.filters = rest; }
+    else ds.filters[col] = act === 'fall' ? distinctValues(ds, col).map(([v]) => v) : [];
+    renderDatasets(); syncAll(); save();
+  }
+  if (act === 'fit') fitToDataset(ds);
+  if (act === 'remove' && confirm(`Remove “${ds.name}”?`)) { state.datasets = state.datasets.filter(d => d !== ds); renderDatasets(); syncAll(); save(); }
+  if (act === 'countries') {
+    const col = countryColumn(ds); const unknown = new Set(); let added = 0;
+    for (const r of filteredRows(ds)) {
+      for (const part of String(r[col] || '').split(/[;,|/]/)) {
+        const code = countryCode(part);
+        if (code && !state.countries[code]) { state.countries[code] = state.countryStyle.color; added++; }
+        else if (!code && part.trim()) unknown.add(part.trim());
+      }
+    }
+    renderCountries(); syncAll(); save();
+    toast(`Highlighted ${added} countr${added === 1 ? 'y' : 'ies'}${unknown.size ? ` · not recognised: ${[...unknown].slice(0, 4).join(', ')}` : ''}`, 4000);
+  }
+});
+
+// ---------- file drop ----------
+const drop = $('#drop');
+drop.addEventListener('click', () => $('#file').click());
+$('#file').addEventListener('change', e => { handleFiles([...e.target.files]); e.target.value = ''; });
+['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); if (t === 'drop' || !e.relatedTarget) drop.classList.remove('over'); }));
+document.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFiles([...e.dataTransfer.files]); });
+
+// ---------- simple controls ----------
+function bindControls() {
+  const cs = state.countryStyle;
+  $('#clickCountries').checked = state.clickCountries;
+  $('#clickMarkers').checked = state.clickMarkers;
+  $('#mSize').value = state.markerStyle.size; $('#mLabels').checked = state.markerStyle.labels;
+  $('#cColor').value = cs.color; $('#cOpacity').value = cs.opacity; $('#cOutline').checked = cs.outline;
+  $('#cFade').value = cs.fade; $('#cFadeColor').value = cs.fadeColor;
+  $('#projection').value = state.projection;
+  document.querySelectorAll('[data-bm]').forEach(el => {
+    const v = state.basemap[el.dataset.bm];
+    if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  });
+  $('#preset').innerHTML = EXPORT_PRESETS.map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+  $('#preset').value = state.exp.preset;
+  $('#expW').value = state.exp.w; $('#expH').value = state.exp.h;
+  $('#customRow').hidden = state.exp.preset !== 'custom';
+  $('#expFrame').checked = state.exp.frame; $('#expLegend').checked = state.exp.legend; $('#expAttribution').checked = state.exp.attribution;
+  $('#expLegendPos').value = state.exp.legendPos;
+  $('#expTextSize').value = String(state.exp.textSize);
+}
+const on = (sel, ev, fn) => $(sel).addEventListener(ev, e => { fn(e.target); save(); });
+// The two click modes are exclusive so a click never both drops a marker and toggles a country
+on('#clickCountries', 'change', el => { state.clickCountries = el.checked; if (el.checked) state.clickMarkers = false; bindControls(); });
+on('#clickMarkers', 'change', el => { state.clickMarkers = el.checked; if (el.checked) state.clickCountries = false; bindControls(); });
+on('#mSize', 'input', el => { state.markerStyle.size = +el.value; syncAll(); });
+on('#mLabels', 'change', el => { state.markerStyle.labels = el.checked; syncAll(); });
+on('#cColor', 'input', el => { state.countryStyle.color = el.value; syncAll(); });
+on('#cOpacity', 'input', el => { state.countryStyle.opacity = +el.value; syncAll(); });
+on('#cOutline', 'change', el => { state.countryStyle.outline = el.checked; syncAll(); });
+on('#cFade', 'input', el => { state.countryStyle.fade = +el.value; syncAll(); });
+on('#cFadeColor', 'input', el => { state.countryStyle.fadeColor = el.value; syncAll(); });
+on('#projection', 'change', el => { state.projection = el.value; map.setProjection(el.value); });
+document.querySelectorAll('[data-bm]').forEach(el => el.addEventListener('change', () => {
+  state.basemap[el.dataset.bm] = el.type === 'checkbox' ? el.checked : el.value;
+  applyBasemap(map); save();
+}));
+on('#preset', 'change', el => {
+  state.exp.preset = el.value;
+  const p = EXPORT_PRESETS.find(p => p.id === el.value);
+  if (p.w) { state.exp.w = p.w; state.exp.h = p.h; }
+  bindControls(); updateFrame();
+});
+on('#expW', 'change', el => { state.exp.w = Math.max(200, Math.min(8000, +el.value || 1920)); updateFrame(); });
+on('#expH', 'change', el => { state.exp.h = Math.max(200, Math.min(8000, +el.value || 1080)); updateFrame(); });
+on('#expFrame', 'change', el => { state.exp.frame = el.checked; updateFrame(); });
+on('#expLegend', 'change', el => { state.exp.legend = el.checked; });
+on('#expLegendPos', 'change', el => { state.exp.legendPos = el.value; });
+on('#expTextSize', 'change', el => { state.exp.textSize = +el.value; });
+on('#expAttribution', 'change', el => { state.exp.attribution = el.checked; });
+
+// ---------- export ----------
+function frameRect() {
+  const rect = $('#map').getBoundingClientRect();
+  const margin = 36, aspect = state.exp.w / state.exp.h;
+  let width = Math.min(rect.width - margin * 2, (rect.height - margin * 2) * aspect);
+  width = Math.max(100, width);
+  const height = width / aspect;
+  return { width: Math.round(width), height: Math.round(height), left: Math.round((rect.width - width) / 2), top: Math.round((rect.height - height) / 2) };
+}
+function updateFrame() {
+  const f = frameRect(), el = $('#frame');
+  el.hidden = !state.exp.frame;
+  Object.assign(el.style, { left: f.left + 'px', top: f.top + 'px', width: f.width + 'px', height: f.height + 'px' });
+  el.querySelector('b').textContent = `${state.exp.w} × ${state.exp.h}`;
+}
+window.addEventListener('resize', updateFrame);
+
+function legendEntries() {
+  const out = [];
+  const visible = state.datasets.filter(d => d.visible && featuresOf(d).length);
+  for (const ds of visible) {
+    const cats = categoriesOf(ds);
+    if (cats.length) {
+      if (visible.length > 1) out.push({ heading: ds.name });
+      // Categories that share a colour get one legend line ("Boards, Analog, Backlight")
+      const byColour = new Map();
+      cats.forEach(c => {
+        const colour = (ds.colors[c.value] || ds.color).toLowerCase();
+        byColour.set(colour, [...(byColour.get(colour) || []), c.value]);
+      });
+      byColour.forEach((labels, color) => out.push({ color, label: labels.join(', ') }));
+    } else out.push({ color: ds.color, label: ds.name });
+  }
+  if (visible.some(d => d.groupCol)) out.push({ note: 'Circle size shows number of sites' });
+  return out;
+}
+const exportScale = () => (state.exp.textSize || 1.5) * Math.min(state.exp.w, state.exp.h) / 1080;
+
+// Sizes below are in map pixels (s = export scale), so the legend matches the map's own 12px labels
+function drawLegend(ctx, W, H, s) {
+  const items = legendEntries();
+  if (!items.length) return;
+  const font = 13 * s, line = font * 1.55, pad = 11 * s, r = 5 * s;
+  ctx.font = `500 ${font}px Inter, Arial, sans-serif`;
+  const gap = 8 * s;
+  const textW = Math.max(...items.map(i => i.note ? ctx.measureText(i.note).width * 0.85 - r * 2 - gap : ctx.measureText(i.heading || i.label).width));
+  const boxW = pad * 2 + r * 2 + gap + textW, boxH = pad * 2 + line * items.length - (line - font);
+  // Right-hand corners sit higher than the bottom margin so the legend clears the map credit
+  const pos = state.exp.legendPos, m = 16 * s;
+  const x = pos[1] === 'l' ? m : W - boxW - m;
+  const y = pos[0] === 't' ? m : H - boxH - (pos === 'br' ? m + 18 * s : m);
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.beginPath(); ctx.roundRect(x, y, boxW, boxH, 6 * s); ctx.fill();
+  ctx.textBaseline = 'middle';
+  items.forEach((it, i) => {
+    const cy = y + pad + font / 2 + i * line;
+    if (it.note) {
+      ctx.font = `400 ${font * 0.85}px Inter, Arial, sans-serif`; ctx.fillStyle = '#6b7280'; ctx.fillText(it.note, x + pad, cy);
+      ctx.font = `500 ${font}px Inter, Arial, sans-serif`;
+      return;
+    }
+    if (it.heading) {
+      ctx.font = `600 ${font}px Inter, Arial, sans-serif`; ctx.fillStyle = '#16181d'; ctx.fillText(it.heading, x + pad, cy);
+      ctx.font = `500 ${font}px Inter, Arial, sans-serif`;
+      return;
+    }
+    ctx.beginPath(); ctx.arc(x + pad + r, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = it.color; ctx.fill(); ctx.lineWidth = 1 * s; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#16181d'; ctx.fillText(it.label, x + pad + r * 2 + gap, cy);
+  });
+}
+function drawAttribution(ctx, W, H, s) {
+  const text = '© Mapbox  © OpenStreetMap', font = 9 * s, pad = 4 * s;
+  ctx.font = `500 ${font}px Inter, Arial, sans-serif`;
+  const tw = ctx.measureText(text).width;
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillRect(W - tw - pad * 2, H - font - pad * 2, tw + pad * 2, font + pad * 2);
+  ctx.fillStyle = '#333'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, W - tw - pad, H - font / 2 - pad);
+}
+
+// Waits until every visible tile is in and nothing has redrawn for a moment. Mapbox's own 'idle' event can't be used:
+// it never fires while a style source is unused (e.g. built-in locations switched off).
+// It also needs at least one frame drawn with all tiles present: browsers stop drawing in background tabs,
+// and without that check a hidden tab would hand back a blank canvas.
+async function settled(m, timeoutMs = 45000) {
+  let lastRender = performance.now(), drawnComplete = false;
+  m.on('render', () => { lastRender = performance.now(); if (m.areTilesLoaded()) drawnComplete = true; });
+  m.triggerRepaint();
+  const start = performance.now();
+  while (performance.now() - start < timeoutMs) {
+    await new Promise(r => setTimeout(r, 250));
+    if (drawnComplete && m.areTilesLoaded() && performance.now() - lastRender > 600) return true;
+  }
+  return drawnComplete;
+}
+
+async function renderPNG() {
+  const W = state.exp.w, H = state.exp.h, f = frameRect();
+  // Text and symbols are sized relative to a 1080p slide, so the PNG looks the same whatever the screen size.
+  // The export map is laid out at W/scale × H/scale and zoomed so it covers exactly the on-screen frame.
+  const scale = exportScale();
+  const cssW = W / scale, cssH = H / scale;
+  const holder = document.createElement('div');
+  holder.style.cssText = `position:fixed;left:-30000px;top:0;width:${cssW}px;height:${cssH}px`;
+  document.body.appendChild(holder);
+  const c = map.getCenter();
+  // GL JS v3 sizes its canvas from devicePixelRatio, so raise it while the export map exists
+  const dpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
+  Object.defineProperty(window, 'devicePixelRatio', { get: () => scale, configurable: true });
+  let m;
+  try {
+    m = new mapboxgl.Map({
+      container: holder, style: STYLE_URL, center: [c.lng, c.lat], zoom: map.getZoom() + Math.log2(cssW / f.width),
+      bearing: map.getBearing(), pitch: map.getPitch(),
+      projection: state.projection, preserveDrawingBuffer: true, interactive: false,
+      attributionControl: false, fadeDuration: 0, maxCanvasSize: [16384, 16384], config: { basemap: { ...state.basemap } }
+    });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Timed out loading the map style')), 30000);
+      m.on('style.load', () => { clearTimeout(timer); applyBasemap(m); syncOverlays(m, true); resolve(); });
+    });
+    if (!await settled(m)) throw new Error("the map didn't finish drawing. Keep this tab in front and try again.");
+    const out = document.createElement('canvas');
+    out.width = W; out.height = H;
+    const ctx = out.getContext('2d');
+    const src = m.getCanvas();
+    if (src.width < W * 0.98) console.warn(`Map rendered at ${src.width}px and was scaled up to ${W}px`);
+    ctx.drawImage(src, 0, 0, W, H);
+    const s = scale;
+    if (state.exp.legend) drawLegend(ctx, W, H, s);
+    if (state.exp.attribution) drawAttribution(ctx, W, H, s);
+    return await new Promise(res => out.toBlob(res, 'image/png'));
+  } finally {
+    if (dpr) Object.defineProperty(window, 'devicePixelRatio', dpr); else delete window.devicePixelRatio;
+    if (m) m.remove();
+    holder.remove();
+  }
+}
+async function withBusy(fn) {
+  $('#busy').hidden = false;
+  try { await fn(); } catch (e) { console.error(e); toast('Export failed: ' + e.message, 5000); } finally { $('#busy').hidden = true; }
+}
+$('#download').addEventListener('click', () => withBusy(async () => {
+  const blob = await renderPNG();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ocean-map-${state.exp.w}x${state.exp.h}-${new Date().toISOString().slice(0, 10)}.png`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}));
+$('#copy').addEventListener('click', () => withBusy(async () => {
+  const blob = await renderPNG();
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    toast('Copied — paste straight into PowerPoint or Keynote');
+  } catch (e) { toast('This browser blocked clipboard access — use Download PNG instead', 5000); }
+}));
+
+// ---------- project ----------
+function openProject(json) {
+  state = mergeState(json.state || {});
+  bindControls(); renderDatasets(); renderCountries(); renderMarkers(); updateFrame();
+  map.setProjection(state.projection); applyBasemap(map);
+  map.jumpTo(state.view); syncAll(); save();
+  toast('Project opened');
+}
+$('#saveProject').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ oceanMapMaker: 1, state: packState(state) })], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ocean-map-project-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+});
+$('#openProject').addEventListener('click', () => $('#projectFile').click());
+$('#projectFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const json = JSON.parse(await f.text());
+    if (!json.oceanMapMaker) throw new Error('not an Ocean Map Maker project');
+    openProject(json);
+  } catch (err) { toast(`Couldn't open project: ${err.message}`, 5000); }
+});
+$('#reset').addEventListener('click', () => {
+  if (confirm('Clear all locations, highlights and settings?')) openProject({ state: defaultState() });
+});
+
+// ---------- brand swatches ----------
+// Every colour input opens the Ocean palette first; "Custom colour…" falls through to the browser's own picker.
+// Picking fires the same input/change events as the native picker, so existing handlers need no changes.
+function closeSwatches() { document.getElementById('swatches')?.remove(); }
+function openSwatches(input) {
+  closeSwatches();
+  const current = input.value.toLowerCase();
+  const pop = document.createElement('div');
+  pop.id = 'swatches';
+  pop.innerHTML = `<h3>Ocean colours</h3><div class="swatch-grid">${BRAND_COLOURS.map(([name, hex]) =>
+    `<button data-hex="${hex}" class="${hex.toLowerCase() === current ? 'on' : ''}" title="${name} ${hex}"><i style="background:${hex}"></i>${name}</button>`).join('')}</div>
+    <button class="custom">Custom colour…</button>`;
+  document.body.appendChild(pop);
+  const r = input.getBoundingClientRect(), h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8)) + 'px';
+  pop.style.top = (r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
+  pop.addEventListener('click', e => {
+    const swatch = e.target.closest('[data-hex]');
+    if (swatch) {
+      input.value = swatch.dataset.hex;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      closeSwatches();
+    } else if (e.target.closest('.custom')) {
+      closeSwatches();
+      try { input.showPicker(); } catch (err) { input.__native = true; input.click(); input.__native = false; }
+    }
+  });
+}
+document.addEventListener('click', e => {
+  const input = e.target.closest('input[type=color]');
+  if (input && !input.__native) { e.preventDefault(); openSwatches(input); return; }
+  if (!e.target.closest('#swatches')) closeSwatches();
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSwatches(); });
+document.querySelector('aside').addEventListener('scroll', closeSwatches);
+
+let toastTimer;
+function toast(msg, ms = 2600) {
+  const t = $('#toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+}
+
+bindControls(); renderDatasets(); renderCountries(); renderMarkers(); updateFrame();
+</script>
+</body>
+</html>

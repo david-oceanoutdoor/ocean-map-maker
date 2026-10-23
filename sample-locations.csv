@@ -1,0 +1,17 @@
+Title,Site Code,City,Countries,Product Groups,Size Groups,Latitude,Longitude
+Sample site – London A,SMP001,London,United Kingdom,Digital,Large Format,51.5101,-0.1340
+Sample site – London B,SMP002,London,United Kingdom,Digital,Large Format,51.4952,-0.1441
+Sample site – London C,SMP003,London,United Kingdom,Banner,Large Format,51.5155,-0.0922
+Sample site – Birmingham,SMP004,Birmingham,United Kingdom,Digital,Large Format,52.4797,-1.9026
+Sample site – Manchester,SMP005,Manchester,United Kingdom,Digital,Large Format,53.4808,-2.2426
+Sample site – Leeds,SMP006,Leeds,United Kingdom,Boards,Large Format,53.7997,-1.5492
+Sample site – Glasgow,SMP007,Glasgow,United Kingdom,Digital,Large Format,55.8609,-4.2514
+Sample site – Edinburgh,SMP008,Edinburgh,United Kingdom,Mural,Large Format,55.9533,-3.1883
+Sample site – Cardiff,SMP009,Cardiff,United Kingdom,Experiential Area,Large Format,51.4816,-3.1791
+Sample site – Bristol,SMP010,Bristol,United Kingdom,Backlite,Small Format,51.4545,-2.5879
+Sample site – Amsterdam,SMP011,Amsterdam,Netherlands,Digital,Large Format,52.3676,4.9041
+Sample site – Rotterdam,SMP012,Rotterdam,Netherlands,Digital,Large Format,51.9244,4.4777
+Sample site – Helsinki,SMP013,Helsinki,Finland,Digital,Large Format,60.1699,24.9384
+Sample site – Stockholm,SMP014,Stockholm,Sweden,Digital,Large Format,59.3293,18.0686
+Sample site – Copenhagen,SMP015,Copenhagen,Denmark,Banner,Large Format,55.6761,12.5683
+Sample site – no coords,SMP016,Oslo,Norway,Digital,Large Format,,
