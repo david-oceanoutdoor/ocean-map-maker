@@ -20,4 +20,4 @@ Use **Save project** to keep a map (data included) as a `.json` file and **Open 
 
 - Place search uses OpenStreetMap Nominatim (one search per Enter, per its usage policy).
 - Exported PNGs carry a small "© Mapbox © OpenStreetMap" credit, which Mapbox's terms expect on maps using its data.
-- The Mapbox token in `index.html` is a public token. Restrict it to this site's address in the Mapbox account so it can't be reused elsewhere.
+- The Mapbox token in `index.html` is a public token, restricted in the Mapbox account to `https://david-oceanoutdoor.github.io`. Use the domain only, not the full page address: browsers send Mapbox just the domain, so a path-specific restriction blocks the site's own map. Running the tool from anywhere else (including `localhost`) needs that address added to the token's restrictions.
